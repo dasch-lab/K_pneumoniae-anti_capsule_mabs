@@ -12,8 +12,8 @@ compute_over_the_most_frequent = False
 siena_ST = 'ST147'
 siena_K_locus = 'KL64'
 
-file_path = os.path.dirname(os.path.realpath(__file__)) # if data are in the same directory as the script
-# file_path = "<insert the path of the folder containing the files>"
+# file_path = os.path.dirname(os.path.realpath(__file__)) # if data are in the same directory as the script
+file_path = "/data"
 # ---------------------------------------
 
 ## Data loading and merging
