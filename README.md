@@ -41,13 +41,13 @@ Run the ST_KL_distribution.py script to analyze the data and obtain the figures 
 - Virulence and resistance score distribution by year.
 
 ```
-python ST_KL_distribution.py
+python scripts/ST_KL_distribution.py
 ```
 
 Run the word_map_plot.py to analize the data and obtain the word map figures showing the K locus KL64 geografical distribution for the three time frames till-2010, till-2016 and till-2022.
 
 ```
-python word_map_plot.py
+python scripts/word_map_plot.py
 ```
 
 ## Analysis of Antibody germline
