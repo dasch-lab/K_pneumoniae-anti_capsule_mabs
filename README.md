@@ -15,7 +15,9 @@ Scripts for the manuscript "Anti-capsule human monoclonal antibodies protect aga
 
 ## Analysis of KL64 and ST147 Kp global diffusion
 
-Download the *"Klebsiella_pneumoniae__kleborate.csv"* and *"Klebsiella_pneumoniae__metadata.csv"* files from [Pathogenwatch](https://pathogen.watch/) following the Public data downloads guidelines at [here](https://cgps.gitbook.io/pathogenwatch/public-data-downloads).
+Download the *"Klebsiella_pneumoniae__kleborate.csv"* and *"Klebsiella_pneumoniae__metadata.csv"* files from [Pathogenwatch](https://pathogen.watch/) following the Public data downloads guidelines at [here](https://cgps.gitbook.io/pathogenwatch/public-data-downloads). 
+
+- Place the downloaed files into the /data folder.
 
 Create and activate the conda environment
 
