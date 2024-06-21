@@ -20,7 +20,7 @@ world_background_color = sns.color_palette("pastel")[5]
 ## --- [END] Parameters --- ##
 
 ## Data loading and merging
-file_path = '/data2/gmaccari/klebsiella/kp_pw_2024'
+file_path = "/data"
 
 # load kleborate file
 kleborate_path = os.path.join(file_path, 'Klebsiella_pneumoniae__kleborate.csv')
