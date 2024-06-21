@@ -1,5 +1,5 @@
-# Anti-capsule_human_monoclonal_antibodies_protect_against_pandrug-resistant_Klebsiella_pneumoniae
-Scripts for the manuscript Anti-capsule human monoclonal antibodies protect against hypervirulent and pandrug-resistant Klebsiella pneumoniae
+# K_pneumoniae-anti_capsule_mabs
+Scripts for the manuscript "Anti-capsule human monoclonal antibodies protect against hypervirulent and pandrug-resistant Klebsiella pneumoniae"
 
 ## Content ##
 ```
