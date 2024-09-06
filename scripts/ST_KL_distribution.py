@@ -8,17 +8,23 @@ import seaborn as sns
 # normalize the STs distribution in percentage by year
 normalise_precent = True
 compute_over_the_most_frequent = False
+
 # Siena strain characterisation
 siena_ST = 'ST147'
 siena_K_locus = 'KL64'
 
-# file_path = os.path.dirname(os.path.realpath(__file__)) # if data are in the same directory as the script
-file_path = "/data"
+file_path = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
+
+# Create the output directory
+result_path = os.path.join(file_path, 'results')
+if not os.path.exists(result_path):
+    os.mkdir(result_path)
+    
 # ---------------------------------------
 
 ## Data loading and merging
 # load kleborate file
-kleborate_path = os.path.join(file_path, 'Klebsiella_pneumoniae__kleborate.csv')
+kleborate_path = os.path.join(file_path, 'data', 'klebsiella_pneumoniae__kleborate.csv')
 kleborate_df = pd.read_csv(kleborate_path, sep=",")
 
 kleborate_var_list = ['Genome ID',
@@ -43,7 +49,7 @@ print("number of KL64: ", kleborate_df['K_locus'].value_counts()) # number of KL
 
 
 # load metadata file
-metadata_path = os.path.join(file_path, 'Klebsiella_pneumoniae__metadata.csv')
+metadata_path = os.path.join(file_path, 'data', 'klebsiella_pneumoniae__metadata.csv')
 metadata_df = pd.read_csv(metadata_path, sep=",")
 
 metadata_var_list = ['id',
@@ -86,6 +92,10 @@ most_frequent_STs = df_merged['ST'].value_counts().head(10).index.tolist()
 print(df_merged['K_locus'].value_counts().head(11))
 most_frequent_K_locus = df_merged['K_locus'].value_counts().head(11).index.tolist()
 most_frequent_K_locus = [_ for _ in most_frequent_K_locus if 'unknown' not in _]
+
+# Make sure some of the most relevant are present & remove duplicates
+most_frequent_K_locus.extend(['KL1', 'KL2', 'KL64'])
+most_frequent_K_locus = list(set(most_frequent_K_locus))
 
 # List of the most frequent O_locus
 print(df_merged['O_locus'].value_counts().head(10))
@@ -135,15 +145,15 @@ if normalise_precent:
     plt.title('Percentage of isolates by year')
     if compute_over_the_most_frequent:
         plt.title('Yearly distribution of the percentage of isolates for the ten most frequent STs\n(percentage computed over the ten most frequent STs)', fontsize=11)
-        plt.savefig('number_of_isolates_by_year_and_ST_lineplot_percentage_over_all_the_STs_over_most_frequent.png')
+        plt.savefig(os.path.join(result_path, 'number_of_isolates_by_year_and_ST_lineplot_percentage_over_all_the_STs_over_most_frequent.png'))
     else:
         plt.title('Yearly distribution of the percentage of isolates for the ten most frequent STs\n(percentage computed over all the STs)', fontsize=11)
         plt.title(" ")
-        plt.savefig('number_of_isolates_by_year_and_ST_lineplot_percentage_over_all_the_STs.png')
+        plt.savefig(os.path.join(result_path, 'number_of_isolates_by_year_and_ST_lineplot_percentage_over_all_the_STs.png'))
 else:
     plt.ylabel('Number of isolates')
     plt.title('Number of isolates by year')
-    plt.savefig('number_of_isolates_by_year_and_ST_lineplot.png')
+    plt.savefig(os.path.join(result_path, 'number_of_isolates_by_year_and_ST_lineplot.png'))
 plt.close()
 # ---------------------------------------
 
@@ -180,6 +190,7 @@ sns.set(style="whitegrid") #{'darkgrid', 'whitegrid', 'dark', 'white', 'ticks'}
 ax = sns.lineplot(x='year', y='value', hue='K_locus', data=pd.melt(siena_k_locus_df, ['year']), legend='brief',lw=1.5)
 ax1 = sns.lineplot(x='year', y='value', hue='K_locus', data=pd.melt(most_frequent_k_locus_df, ['year']), legend='brief',lw=.8, alpha=.7, palette=palette[1:], linestyle='dashdot')
 plt.xlabel('Year')
+
 # reduce the legend font to 'x-small'
 sns.move_legend(ax, "upper left", fontsize='xx-small', title=None)
 sns.move_legend(ax1, "upper left", fontsize='xx-small', title=None)
@@ -187,16 +198,16 @@ if normalise_precent:
     plt.ylabel('Percentage of isolates')
     if compute_over_the_most_frequent:
         plt.title('Yearly distribution of the percentage of isolates for the ten most frequent K_locus\n(percentage computed over the ten most frequent K_locus)', fontsize=11)
-        plt.savefig('number_of_isolates_by_year_and_K_locus_lineplot_percentage_over_most_frequent.png')
+        plt.savefig(os.path.join(result_path, 'number_of_isolates_by_year_and_K_locus_lineplot_percentage_over_most_frequent.png'))
 
     else:
         plt.title('Yearly distribution of the percentage of isolates for the ten most frequent K_locus\n(percentage computed over all the K_locus)', fontsize=11)
         plt.title(" ")
-        plt.savefig('number_of_isolates_by_year_and_K_locus_lineplot_percentage_over_all_the_STs.png')
+        plt.savefig(os.path.join(result_path, 'number_of_isolates_by_year_and_K_locus_lineplot_percentage_over_all_the_STs.png'))
 else:
     plt.ylabel('Number of isolates')
     plt.title('Number of isolates by year')
-    plt.savefig('number_of_isolates_by_year_and_K_locus_lineplot.png')
+    plt.savefig(os.path.join(result_path, 'number_of_isolates_by_year_and_K_locus_lineplot.png'))
 
 plt.close()
 # ---------------------------------------
@@ -246,11 +257,11 @@ if normalise_precent:
     plt.ylabel('Percentage of isolates')
     plt.title('Yearly distribution of the percentage of isolates with\n Virulence Score greater than 2 for the ten most frequent STs\n(percentage computed over all the STs)', fontsize=11)
     plt.title(" ")
-    plt.savefig('number_of_isolates_with_virulence_score_gt_3_by_year_percentage_over_all_the_STs.png')
+    plt.savefig(os.path.join(result_path, 'number_of_isolates_with_virulence_score_gt_3_by_year_percentage_over_all_the_STs.png'))
 else:
     plt.ylabel('Number of isolates')
     plt.title('Yearly distribution of the number of isolates with\n Virulence Score greater than 2 for the ten most frequent STs')
-    plt.savefig('number_of_isolates_with_virulence_score_gt_3_by_year.png')
+    plt.savefig(os.path.join(result_path, 'number_of_isolates_with_virulence_score_gt_3_by_year.png'))
 plt.close()
 # ---------------------------------------
 
@@ -267,11 +278,11 @@ if normalise_precent:
     plt.ylabel('Percentage of isolates')
     plt.title('Yearly distribution of the percentage of isolates with\n Resistance Score 2-3 for the ten most frequent ST', fontsize=11)
     plt.title(" ")
-    plt.savefig('number_of_isolates_with_resistance_score_gt_2_by_year_percentage_over_all_the_STs.png')
+    plt.savefig(os.path.join(result_path, 'number_of_isolates_with_resistance_score_gt_2_by_year_percentage_over_all_the_STs.png'))
 else:
     plt.ylabel('Number of isolates')
     plt.title('Yearly distribution of the number of isolates with\n Resistance Score greater than 2 for the ten most frequent STs')
-    plt.savefig('number_of_isolates_with_resistance_score_gt_2_by_year.png')
+    plt.savefig(os.path.join(result_path, 'number_of_isolates_with_resistance_score_gt_2_by_year.png'))
 plt.close()
 # ---------------------------------------
 
@@ -308,11 +319,11 @@ if normalise_precent:
     plt.ylabel('Percentage of isolates')
     plt.title('Yearly distribution of the percentage of isolates with\n Virulence Score greater than 2 for the ten most frequent K_locus\n(percentage computed over all the K_locus)', fontsize=11)
     plt.title(" ")
-    plt.savefig('number_of_isolates_with_virulence_score_gt_3_by_year_percentage_KL_over_all_the_STs.png')
+    plt.savefig(os.path.join(result_path, 'number_of_isolates_with_virulence_score_gt_3_by_year_percentage_KL_over_all_the_STs.png'))
 else:
     plt.ylabel('Number of isolates')
     plt.title('Yearly distribution of the number of isolates with\n Virulence Score greater than 2 for the ten most frequent K_locus')
-    plt.savefig('number_of_isolates_with_virulence_score_gt_3_by_year_KL.png')
+    plt.savefig(os.path.join(result_path, 'number_of_isolates_with_virulence_score_gt_3_by_year_KL.png'))
 plt.close()
 # ---------------------------------------
 
@@ -329,12 +340,97 @@ if normalise_precent:
     plt.ylabel('Percentage of isolates')
     plt.title('Yearly distribution of the percentage of isolates with\n Resistance Score 2-3 for the ten most frequent K_locus', fontsize=11)
     plt.title(" ")
-    plt.savefig('number_of_isolates_with_resistance_score_gt_2_by_year_percentage_KL_over_all_the_STs.png')
+    plt.savefig(os.path.join(result_path, 'number_of_isolates_with_resistance_score_gt_2_by_year_percentage_KL_over_all_the_STs.png'))
 else:
     plt.ylabel('Number of isolates')
     plt.title('Yearly distribution of the number of isolates with\n Resistance Score 2-3 for the ten most frequent K_locus')
-    plt.savefig('number_of_isolates_with_resistance_score_gt_2_by_year_KL.png')
+    plt.savefig(os.path.join(result_path, 'number_of_isolates_with_resistance_score_gt_2_by_year_KL.png'))
 plt.close()
+
+# ---------------------------------------
+
+# Calculate a stacked graph shoing the number of KL64, KL1 and KL2 by year and ST
+
+# df_KL_ST = df_merged.groupby(['year', 'K_locus', 'ST']).size().reset_index(name='count')
+
+# Keep only data for KL64, KL1 and KL2
+# df_KL_ST = df_KL_ST[df_KL_ST['K_locus'].isin(['KL64','KL1','KL2'])]
+
+# Select only the specified columns
+# df_KL_ST = df_KL_ST[ [ 'year', 'K_locus', 'ST', 'count' ]]
+
+# print(df_KL_ST)
+
+
+# Count the total number of rows grouped by "year"
+total_per_year = df_merged.groupby('year').size().reset_index(name='total_count')
+
+# Step 2: Group by "year", "locus", "st" and count occurrences, then calculate percentages
+df_KL_ST = df_merged.groupby(['year', 'K_locus', 'ST']).size().reset_index(name='raw_count')
+
+# Select only the specified columns
+df_KL_ST = df_KL_ST[ [ 'year', 'K_locus', 'ST', 'raw_count' ]]
+
+# Merge with total counts to calculate the percentage
+df_KL_ST = pd.merge(df_KL_ST, total_per_year, on='year')
+
+# Calculate the percentage
+df_KL_ST['percentage'] = (df_KL_ST['raw_count'] / df_KL_ST['total_count']) * 100
+
+
+# Create a figure with 3 rows and 1 column of subplots
+locus_list = ['KL64','KL1','KL2']
+fig, axes = plt.subplots(nrows=len(locus_list), ncols=1, figsize=(8, 12))
+if len(locus_list) == 1:
+    axes = [axes]
+
+for idx, locus in enumerate(locus_list):
+    locus_data = df_KL_ST[df_KL_ST['K_locus'] == locus]
+    
+    # Group by "ST" and sum the "raw_count"
+    grouped_st = locus_data.groupby('ST')['raw_count'].sum()
+
+    # Get the top 10 "ST" by raw_count
+    top_10_st = grouped_st.nlargest(10).index.tolist()
+
+    # # Get top N most represented st per year and locus
+    # top_n = 10
+    # top_st_per_group = locus_data.groupby(['ST'])['ST', 'raw_count'].nlargest(top_n).reset_index(drop=True)
+    # print('locus')
+    # print(top_st_per_group)
+    # sys.exit(1)
+    
+    # Mark 'st' as 'others' if it's not in the top N
+    locus_data['ST'] = locus_data.apply(lambda row: row['ST'] if row['ST'] in top_10_st else 'others', axis=1)
+
+    # Re-group by year, locus, and 'st' (including 'others')
+    locus_data = locus_data.groupby(['year', 'K_locus', 'ST'], as_index=False).agg({'raw_count': 'sum'})
+
+    # Recalculate percentages
+    locus_data = locus_data.merge(total_per_year, on='year')
+    locus_data['percentage'] = (locus_data['raw_count'] / locus_data['total_count']) * 100
+    
+    
+
+    # Pivot the data to have 'st' as columns for stacked bar plot
+    pivot_data = locus_data.pivot(index='year', columns='ST', values='percentage').fillna(0)
+
+    # Plotting on the specified axis
+    pivot_data.plot(kind='bar', stacked=True, ax=axes[idx])
+
+    # Customize the subplot
+    axes[idx].set_title(f'{locus} locus')
+    axes[idx].set_xlabel('Year')
+    axes[idx].set_ylabel('Percentage of isolates')
+    axes[idx].legend(title=None, ncol=2)
+
+# Adjust layout to prevent overlap
+plt.tight_layout()
+
+# Save the plot to a file
+plt.savefig(os.path.join(result_path, 'KL_by_ST_by_year_percentage_KL_over_all_the_STs.png'), dpi=300)
+
+
 # ---------------------------------------
 
 print('\n\nDone!')

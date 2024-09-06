@@ -15,24 +15,14 @@ Scripts for the manuscript "Anti-capsule human monoclonal antibodies protect aga
 
 ## Analysis of KL64 and ST147 Kp global diffusion
 
-Download the *"Klebsiella_pneumoniae__kleborate.csv"* and *"Klebsiella_pneumoniae__metadata.csv"* files from [Pathogenwatch](https://pathogen.watch/) following the Public data downloads guidelines at [here](https://cgps.gitbook.io/pathogenwatch/public-data-downloads). 
+Run the *download.sh* script that will download data from [Pathogenwatch](https://pathogen.watch/) following the Public data downloads guidelines at [here](https://cgps.gitbook.io/pathogenwatch/public-data-downloads). Files will be placed in the /data folder
 
-- Place the downloaed files into the /data folder.
-
-Create and activate the conda environment
+Create and activate the python environment
 
 ```
-conda create -p ./env_conda python=3.10 pip ipython
-conda activate ./env_conda/
-```
-
-Install the required packages
-
-```
-conda install pandas
-conda install matplotlib
-conda install seaborn
-conda install geopandas
+python3 -m venv env
+source ./env/bin/activate
+pip install -r requirements.txt
 ```
 
 Run the ST_KL_distribution.py script to analyze the data and obtain the figures for 
