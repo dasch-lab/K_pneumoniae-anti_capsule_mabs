@@ -50,14 +50,10 @@ usePackage('plyr');
 usePackage("cowplot");  # For plot_grid
 usePackage('viridis');
 usePackage("Biostrings");
+usePackage("ggrepel");
 
 usePackage.bio('ggtree');
 usePackage.bio('treeio');
-
-color.IGH <- '#CF3B3B';
-color.IGK <- '#45D176';
-color.IGL <- '#25934B';
-color.border <- 'white';
 
 # Define clusters
 cluster_map <- c(
@@ -228,15 +224,97 @@ calculate_distance_matrix <- function(names, sequences) {
   return(distance_matrix)
 }
 
+# This function extends the geom_violin to create a violin plot that is splitted by a grouping variable
+GeomSplitViolin <- ggplot2::ggproto(
+    "GeomSplitViolin",
+    ggplot2::GeomViolin,
+    draw_group = function(self,
+                          data,
+                          ...,
+                          # add the nudge here
+                          nudge = 0,
+                          draw_quantiles = NULL) {
+        data <- transform(data,
+                          xminv = x - violinwidth * (x - xmin),
+                          xmaxv = x + violinwidth * (xmax - x))
+        grp <- data[1, "group"]
+        newdata <- plyr::arrange(transform(data,
+                                           x = if (grp %% 2 == 1) xminv else xmaxv),
+                                 if (grp %% 2 == 1) y else -y)
+        newdata <- rbind(newdata[1, ],
+                         newdata,
+                         newdata[nrow(newdata), ],
+                         newdata[1, ])
+        newdata[c(1, nrow(newdata)-1, nrow(newdata)), "x"] <- round(newdata[1, "x"])
+
+        # now nudge them apart
+        newdata$x <- ifelse(newdata$group %% 2 == 1,
+                            newdata$x - nudge,
+                            newdata$x + nudge)
+
+        if (length(draw_quantiles) > 0 & !scales::zero_range(range(data$y))) {
+
+            stopifnot(all(draw_quantiles >= 0), all(draw_quantiles <= 1))
+
+            quantiles <- ggplot2:::create_quantile_segment_frame(data,
+                                                             draw_quantiles)
+            aesthetics <- data[rep(1, nrow(quantiles)),
+                               setdiff(names(data), c("x", "y")),
+                               drop = FALSE]
+            aesthetics$alpha <- rep(1, nrow(quantiles))
+            both <- cbind(quantiles, aesthetics)
+            quantile_grob <- ggplot2::GeomPath$draw_panel(both, ...)
+            ggplot2:::ggname("geom_split_violin",
+                             grid::grobTree(ggplot2::GeomPolygon$draw_panel(newdata, ...),
+                                            quantile_grob))
+        }
+    else {
+            ggplot2:::ggname("geom_split_violin",
+                             ggplot2::GeomPolygon$draw_panel(newdata, ...))
+        }
+    }
+)
+
+geom_split_violin <- function(mapping = NULL,
+                              data = NULL,
+                              stat = "ydensity",
+                              position = "identity",
+                              # nudge param here
+                              nudge = 0,
+                              ...,
+                              draw_quantiles = NULL,
+                              trim = TRUE,
+                              scale = "area",
+                              na.rm = FALSE,
+                              show.legend = NA,
+                              inherit.aes = TRUE) {
+
+    ggplot2::layer(data = data,
+                   mapping = mapping,
+                   stat = stat,
+                   geom = GeomSplitViolin,
+                   position = position,
+                   show.legend = show.legend,
+                   inherit.aes = inherit.aes,
+                   params = list(trim = trim,
+                                 scale = scale,
+                                 # don't forget the nudge
+                                 nudge = nudge,
+                                 draw_quantiles = draw_quantiles,
+                                 na.rm = na.rm,
+                                 ...))
+}
+
+# Parse the input data
 data.input <- read.csv(opt$input, header=TRUE, sep="\t", row.names=NULL) %>%
   dplyr::mutate(name=parse_name(sequence_id)) %>%
-  dplyr::mutate(v_call=parse_germline(v_call), j_call=parse_germline(j_call)) %>%
+  dplyr::mutate(v_call=parse_germline(v_call), j_call=parse_germline(j_call), d_call=parse_germline(d_call)) %>%
   dplyr::mutate(identity=calculate_identity(sequence_alignment_aa, germline_alignment_aa)) %>%
   dplyr::mutate(cdr3_len=nchar(cdr3_aa)) %>%
   dplyr::mutate(cluster=set_cluster(name)) %>%
   dplyr::mutate(type=ifelse(locus == 'IGH', 'heavy', 'light')) %>%
   dplyr::filter(cluster > 0) %>%
-  dplyr::select(name, cluster, cdr3_aa, cdr3_len, identity, v_call, j_call, type, sequence_alignment_aa, locus);
+  dplyr::select(name, cluster, cdr3_aa, cdr3_len, identity, v_call, d_call, j_call, v_identity, j_identity, d_identity, type, sequence_alignment_aa, locus);
 
 data.full.heavy <- data.input %>%
   dplyr::filter(type == 'heavy') %>%
@@ -254,11 +332,7 @@ data.CDR3.light <- data.input %>%
   dplyr::select(name, cdr3_aa) %>%
   dplyr::rename(sequence = cdr3_aa);
 
-write_fasta(data.full.heavy, file.path(output_dir, 'antibodies_full_heavy.fasta'));
-write_fasta(data.full.light, file.path(output_dir, 'antibodies_full_light.fasta'));
-write_fasta(data.CDR3.heavy, file.path(output_dir, 'antibodies_CDR3H.fasta'));
-write_fasta(data.CDR3.light, file.path(output_dir, 'antibodies_CDR3L.fasta'));
-
+# Calculate the sequence distance
 distance.heavy <- calculate_distance_matrix(data.full.heavy$name, data.full.heavy$sequence);
 distance.light <- calculate_distance_matrix(data.full.light$name, data.full.light$sequence);
 
@@ -280,255 +354,238 @@ distance.light <- distance.light[order.light, order.light];
 heatmap.heavy <- as.data.frame(as.table(distance.heavy));
 heatmap.light <- as.data.frame(as.table(distance.light));
 
-# Generate frequency plot
-data.heavy.v <- data.input %>%
-  dplyr::filter(type == 'heavy') %>%
-  dplyr::group_by(v_call, locus) %>%
-  dplyr::summarize(count=n()) %>%
-  dplyr::arrange(desc(count));
-
-data.heavy.j <- data.input %>%
-  dplyr::filter(type == 'heavy') %>%
-  dplyr::group_by(j_call, locus) %>%
-  dplyr::summarize(count=n()) %>%
-  dplyr::arrange(desc(count));
-
-data.light.v <- data.input %>%
-  dplyr::filter(type == 'light') %>%
-  dplyr::group_by(v_call, locus) %>%
-  dplyr::summarize(count=n()) %>%
-  dplyr::arrange(desc(count));
-
-data.light.j <- data.input %>%
-  dplyr::filter(type == 'light') %>%
-  dplyr::group_by(j_call, locus) %>%
-  dplyr::summarize(count=n()) %>%
-  dplyr::arrange(desc(count));
-
-# Sort by count
-data.heavy.v$v_call <- factor(data.heavy.v$v_call,  levels=data.heavy.v$v_call[order(data.heavy.v$count, decreasing=FALSE)]);
-data.light.v$v_call <- factor(data.light.v$v_call,  levels=data.light.v$v_call[order(data.light.v$count, decreasing=FALSE)]);
-data.heavy.j$j_call <- factor(data.heavy.j$j_call,  levels=data.heavy.j$j_call[order(data.heavy.j$count, decreasing=FALSE)]);
-data.light.j$j_call <- factor(data.light.j$j_call,  levels=data.light.j$j_call[order(data.light.j$count, decreasing=FALSE)]);
-
-# Generate a frequency map for heavy and light chains
-data.heavy.frequency <- data.input %>%
-  dplyr::filter(type == 'heavy') %>%
+# Generate the frequency data for the bubble plot
+data.frequency <- data.input %>%
+  dplyr::group_by(type) %>%
   dplyr::mutate(total=n()) %>%
-  dplyr::group_by(v_call, j_call, total) %>%
+  dplyr::ungroup() %>%
+  dplyr::group_by(type, v_call, j_call, total, cluster) %>%
   dplyr::summarize(count=n()) %>%
-  dplyr::mutate(freq=100*(count/total));
+  dplyr::mutate(freq=100*(count/total)) %>%
+  dplyr::mutate(label=paste(v_call, j_call, sep=';')) %>%
+  dplyr::mutate(cluster = as.factor(cluster));
 
-# Append missing elements to fill the heavy table
-v_call_list <- sort(unique(data.heavy.frequency %>% distinct(v_call) %>% pull()));
-j_call_list <- sort(unique(data.heavy.frequency %>% distinct(j_call) %>% pull()));
-data.heavy.frequency.empty <- expand.grid(count=0, v_call=v_call_list, j_call=j_call_list);
-data.heavy.frequency.missing <- anti_join(data.heavy.frequency.empty, data.heavy.frequency, by=c("v_call", 'j_call'));
-if(nrow(data.heavy.frequency.missing ) > 0){
-  data.heavy.frequency.missing$count <- NA;
-  data.heavy.frequency <- full_join(data.heavy.frequency, data.heavy.frequency.missing, by=c("v_call", 'j_call', 'count'));
-}
-
-data.light.frequency <- data.input %>%
-  dplyr::filter(type == 'light') %>%
-  dplyr::mutate(total=n()) %>%
-  dplyr::group_by(v_call, j_call, total) %>%
-  dplyr::summarize(count=n()) %>%
-  dplyr::mutate(freq=100*(count/total));
-
-# Append missing elements to fill the light table
-v_call_list <- sort(unique(data.light.frequency %>% distinct(v_call) %>% pull()));
-j_call_list <- sort(unique(data.light.frequency %>% distinct(j_call) %>% pull()));
-data.light.frequency.empty <- expand.grid(count=0, v_call=v_call_list, j_call=j_call_list);
-data.light.frequency.missing <- anti_join(data.light.frequency.empty, data.light.frequency, by=c("v_call", 'j_call'));
-if(nrow(data.light.frequency.missing ) > 0){
-  data.light.frequency.missing$count <- NA;
-  data.light.frequency <- full_join(data.light.frequency, data.light.frequency.missing, by=c("v_call", 'j_call', 'count'));
-}
+data.violin <- data.input %>%
+  dplyr::select(cluster, type, v_identity, d_identity, j_identity) %>%
+  pivot_longer(cols = c(v_identity, d_identity, j_identity ), names_to = "key", values_to = "value") %>%
+  dplyr::mutate(cluster = as.factor(cluster)) %>%
+  dplyr::filter(!is.na(value));
 
 # Start generating plots
 print("Rendering");
+
 frequency.text.size <- 6;
 frequency.title.size <- 8;
-p.heavy.j <- ggplot(data.heavy.j, aes(x = j_call, y = count)) +
-  geom_bar(stat = "identity", fill=color.IGH) +
-  coord_flip() +  # Flip coordinates for vertical bars
-  labs(x = "IGHJ", y = "Count") +
+
+# Create a bubble chart with the recombinant frequency and 
+germline.top.list <-  data.frequency %>%
+  filter(type == "heavy") %>%
+  ungroup() %>%
+  top_n(3, freq) %>%
+  bind_rows(
+    data.frequency %>%
+      filter(type == "light") %>%
+      ungroup() %>%
+      top_n(3, freq)
+  ) %>%
+  pull(label);
+
+# Define a common size scale
+bubble.min <- min(data.frequency$freq)  # Smallest size across both datasets
+bubble.max <- max(data.frequency$freq)  # Largest size across both datasets
+size_range <- c(3, 10)  # Visual size range for bubbles
+
+color.cluster <- c('#FF5C8F', '#6983C9');
+p.bubble.light <- ggplot(data.frequency %>% filter(type == 'light'), aes(x = v_call, y = j_call, fill = cluster, label=label)) +
+  geom_point(data = subset(data.frequency, type =='light' & !label %in% germline.top.list), aes(size=freq, alpha=0.7), shape = 21) + 
+  geom_point(data = subset(data.frequency, type =='light' & label %in% germline.top.list), aes(size=freq, alpha=1.0), shape = 21) + 
+  geom_text_repel(
+    data = subset(data.frequency, type == 'light' & label %in% germline.top.list),
+    seed=42,
+    box.padding = 0.5,  # Adjust padding as needed
+    max.time=1,
+    segment.color = 'gray85',
+    segment.size = 0.1,
+    nudge_y=1,
+    max.iter=90000,
+    min.segment.length = 0.01,
+    size=2
+  ) +
+  xlab("V Gene") +
+  ylab("J Gene") +
+  scale_fill_manual(
+    values=color.cluster, 
+    labels = c("Cluster 1", "Cluster 2"),
+    guide = "none",
+  ) +
+  scale_size_continuous(
+    limits = c(bubble.min, bubble.max),
+    range = size_range,
+    name = "Frequency"
+  ) +
+  coord_cartesian(clip = 'off') +
+  scale_alpha(guide = 'none') +
   theme_bw() + 
   theme(
-    legend.position='none',
-    axis.title.x=element_text(size=frequency.title.size),
-    axis.title.y=element_text(size=frequency.title.size),
-    axis.text.x=element_text(size=frequency.text.size),
-    axis.text.y=element_text(size=frequency.text.size)
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border=element_blank(),
+    axis.text.y = element_text(size=6),
+    axis.line=element_line(color='black'),
+    axis.title.x = element_text(size=6),
+    axis.title.y = element_text(size=6),
+    panel.grid.major.x = element_line(color='#ECECEC', linewidth=0.3),
+    axis.ticks.y=element_blank(),
+    axis.ticks.x=element_blank(),
+    legend.direction="horizontal",
+    legend.key.size = unit(4, 'mm'),
+    plot.margin = margin(t=0, r=1, b=2, l=0, unit="mm"), 
+    strip.background =element_blank(),
+    strip.text = element_text(size=6),
+    axis.text.x = element_text(angle = 45, hjust = 1, size=6)
   );
 
-p.heavy.v <- ggplot(data.heavy.v, aes(x = v_call, y = count)) +
-  geom_bar(stat = "identity", fill=color.IGH) +
-  coord_flip() +  # Flip coordinates for vertical bars
-  labs(x = "IGHV", y = "Count") +
+p.bubble.heavy <- ggplot(data.frequency %>% filter(type == 'heavy'), aes(x = v_call, y = j_call, fill = cluster, label=label)) +
+  geom_point(data = subset(data.frequency, type =='heavy' & !label %in% germline.top.list), aes(size=freq, alpha=0.5), shape = 21) + 
+  geom_point(data = subset(data.frequency, type =='heavy' & label %in% germline.top.list), aes(size=freq, alpha=1.0), shape = 21) + 
+  geom_text_repel(
+    data = subset(data.frequency, type == 'heavy' & label %in% germline.top.list),
+    seed=42,
+    box.padding = 0.5,  # Adjust padding as needed
+    max.time=1,
+    segment.color = 'gray85',
+    segment.size = 0.1,
+    nudge_y=1,
+    max.iter=90000,
+    min.segment.length = 0.01,
+    size=2
+  ) +
+  xlab("V Gene") +
+  ylab("J Gene") +
+  scale_fill_manual(
+    values=color.cluster, 
+    labels = c("Cluster 1", "Cluster 2"),
+    # guide = "none",
+  ) +
+  scale_size_continuous(
+    limits = c(bubble.min, bubble.max),
+    range = size_range,
+    name = "Frequency"
+  ) +
+  coord_cartesian(clip = 'off') +
+  guides(fill=guide_legend(nrow=1, override.aes=list(shape=22, size=10)), alpha='none', size=guide_legend(nrow = 1)) +
   theme_bw() + 
   theme(
-    legend.position='none',
-    axis.title.x=element_text(size=frequency.title.size),
-    axis.title.y=element_text(size=frequency.title.size),
-    axis.text.x=element_text(size=frequency.text.size),
-    axis.text.y=element_text(size=frequency.text.size)
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border=element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1, size=6),
+    axis.text.y = element_text(size=6),
+    axis.line=element_line(color='black'),
+    axis.title.x = element_text(size=6),
+    axis.title.y = element_text(size=6),
+    panel.grid.major.x = element_line(color='#ECECEC', linewidth=0.3),
+    axis.ticks.y=element_blank(),
+    axis.ticks.x=element_blank(),
+    legend.direction="horizontal",
+    legend.key.size = unit(4, 'mm'),
+    plot.margin = margin(t=0, r=1, b=2, l=0, unit="mm"), 
+    strip.background=element_blank(),
+    strip.text = element_text(size=6)
   );
 
-p.light.j <- ggplot(data.light.j, aes(x = j_call, y = count, fill=locus)) +
-  geom_bar(stat = "identity") +
-  coord_flip() +  # Flip coordinates for vertical bars
-  scale_fill_manual(values=c(color.IGK, color.IGL), limits = c('IGK', 'IGL'), labels = c("IGK", "IGL")) +
-  labs(x = "IGKJ/IGLJ", y = "Count") +
-  theme_bw() +
-  theme(
-    legend.position='none',
-    axis.title.x=element_text(size=frequency.title.size),
-    axis.title.y=element_text(size=frequency.title.size),
-    axis.text.x=element_text(size=frequency.text.size),
-    axis.text.y=element_text(size=frequency.text.size)
-  );
-
-p.light.v <- ggplot(data.light.v, aes(x = v_call, y = count, fill=locus)) +
-  geom_bar(stat = "identity") +
-  coord_flip() +  # Flip coordinates for vertical bars
-  scale_fill_manual(values=c(color.IGK, color.IGL), limits = c('IGK', 'IGL'), labels = c("IGK", "IGL")) +
-  labs(x = "IGKV/IGLV", y = "Count") +
-  theme_bw() + 
-  theme(
-    legend.position='none',
-    axis.title.x=element_text(size=frequency.title.size),
-    axis.title.y=element_text(size=frequency.title.size),
-    axis.text.x=element_text(size=frequency.text.size),
-    axis.text.y=element_text(size=frequency.text.size)
-  );
-
-# Plot the heatmap
-p.heavy.frequency <- ggplot(data.heavy.frequency) + 
-  geom_tile(mapping=aes(x=v_call, y=j_call, fill=count), colour=color.border, size=1) +
-  labs(fill = "Frequency (%)", x = "IGHV", y = "IGHJ") + 
-  guides(fill = guide_colourbar(title.position = "top")) + 
-    scale_fill_viridis(
-      alpha = 1,
-      begin = 0,
-      end = 1,
-      direction = -1,
-      discrete = FALSE,
-      na.value = "grey90",
-      option = "A",
-      trans = "log10",
-      limits = c(1, 100),
-      n.breaks=7,
-    ) +
-    theme_bw() + 
-    theme(
-      axis.title.x=element_blank(),
-      axis.title.y=element_blank(),
-      axis.text.y=element_text(size=frequency.text.size),
-      axis.text.x=element_text(
-        angle = 45, 
-        vjust = 1, 
-        size = frequency.text.size, 
-        hjust = 1, 
-        margin = margin(t = 2, r = 0, b = 0, l = 0)
-      )
-    );
-
-# Plot the heatmap
-p.light.frequency <- ggplot(data.light.frequency) + 
-  geom_tile(mapping=aes(x=v_call, y=j_call, fill=count), colour=color.border, size=1) +
-  labs(fill = "Frequency (%)", x = "IGKV/IGLV", y = "IGKJ/IGLJ") +
-  guides(fill = guide_colourbar(title.position = "top")) + 
-    scale_fill_viridis(
-      alpha = 1,
-      begin = 0,
-      end = 1,
-      direction = -1,
-      discrete = FALSE,
-      na.value = "grey90",
-      option = "A",
-      trans = "log10",
-      limits = c(1, 100),
-      n.breaks=7,
-    ) +
-    theme_bw() + 
-    theme(
-      axis.title.x=element_blank(),
-      axis.title.y=element_blank(),
-      axis.text.y=element_text(size=frequency.text.size),
-      axis.text.x=element_text(
-        angle = 45, 
-        vjust = 1, 
-        size = frequency.text.size, 
-        hjust = 1, 
-        margin = margin(t = 2, r = 0, b = 0, l = 0)
-      )
-    );
-
-# Get heatmap legend
-p.frequency.legend <- get_legend(p.heavy.frequency + theme(
-  legend.title=element_text(size=6),
+# Get annotation legend
+p.bubble.legend  <- get_legend(p.bubble.heavy + theme(
+  legend.title = element_blank(),
   legend.direction = "horizontal",
   legend.justification="center",
+  legend.box = "horizontal",   # Arrange legends horizontally
   legend.box.just = "bottom", 
   legend.title.align=0.5,
-  legend.text=element_text(size=6)
-  ));
+  legend.text=element_text(size=6)));
 
 # Remove the legend before plotting
-p.heavy.frequency <- p.heavy.frequency + theme(legend.position='none');
-p.light.frequency <- p.light.frequency + theme(legend.position='none');
+p.bubble.heavy <- p.bubble.heavy + theme(legend.position='none');
+p.bubble.light <- p.bubble.light + theme(legend.position='none');
 
-# Identity plot
-p.identity <- ggplot(data.input, aes(x=type, y=identity, fill=type)) + 
-  geom_violin() + 
-  geom_dotplot(binaxis='y', stackdir='center', dotsize=1) +
-  scale_fill_manual(values=c(color.IGH, color.IGK), limits = c('heavy', 'light'), labels = c("Heavy", "Light")) +
+# Create a violin plot with the somatic hypermutations for VH & VL
+violin.min <- min(data.violin$value);
+violin.max <- max(data.violin$value);
+p.violin.heavy <- ggplot(data.violin %>% filter(type == 'heavy'), aes(x=key, y=value, fill=cluster)) + 
+  geom_split_violin(nudge = 0.02) + 
+  geom_point(
+    shape=16,
+    position=position_jitterdodge(jitter.width=0.3,dodge.width=0.6)
+  ) + 
+  scale_x_discrete(
+    limits = c("v_identity", "d_identity", "j_identity"),
+    labels = c("v_identity"="V gene", "d_identity" = "D gene", "j_identity"="J gene")
+  ) +
+  scale_y_continuous(limits = c(violin.min, violin.max)) + 
+  scale_fill_manual(
+    values=color.cluster, 
+    labels = c("Cluster 1", "Cluster 2"),
+    guide = "none",
+  ) +
   theme_bw() +
   theme(
-    legend.position='none'
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border=element_blank(),
+    axis.text.y = element_text(size=6),
+    axis.line=element_line(color='black'),
+    axis.text.x = element_text(size=6),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major.x = element_line(color='#ECECEC', linewidth=0.3),
+    axis.ticks.y=element_blank(),
+    axis.ticks.x=element_blank(),
+    legend.direction="horizontal",
+    legend.key.size = unit(4, 'mm'),
+    plot.margin = margin(t=0, r=1, b=2, l=0, unit="mm"), 
+    strip.background =element_blank(),
+    strip.text = element_text(size=6),
+    legend.position='none',
   );
 
-data.cdr3 <- data.input %>%
-  dplyr::group_by(type, cdr3_len) %>%
-  dplyr::summarize(count=n());
-
-p.cdr3_len <- ggplot(data.cdr3) + 
-  geom_density(aes(x=cdr3_len, group=type, fill=type), alpha=0.5, adjust=2,kernel = "rectangular") + 
-  facet_grid(~type) +
-  scale_fill_manual(values=c(color.IGH, color.IGK), limits = c('heavy', 'light'), labels = c("Heavy", "Light")) +
-  theme_bw() + 
+p.violin.light <- ggplot(data.violin %>% filter(type == 'light'), aes(x=key, y=value, fill=cluster)) + 
+  geom_split_violin(nudge = 0.02) + 
+  geom_point(
+    shape=16,
+    position=position_jitterdodge(jitter.width=0.3,dodge.width=0.6)
+  ) + 
+  scale_x_discrete(
+    limits = c("v_identity", "j_identity"),
+    labels = c("v_identity"="V gene", "j_identity"="J gene")
+  ) +
+  scale_y_continuous(limits = c(violin.min, violin.max)) +  # Set y-axis min and max
+  scale_fill_manual(
+    values=color.cluster, 
+    labels = c("Cluster 1", "Cluster 2"),
+    guide = "none",
+  ) +
+  theme_bw() +
   theme(
-    legend.position='none'
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border=element_blank(),
+    axis.text.y = element_text(size=6),
+    axis.line=element_line(color='black'),
+    axis.text.x = element_text(size=6),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major.x = element_line(color='#ECECEC', linewidth=0.3),
+    axis.ticks.y=element_blank(),
+    axis.ticks.x=element_blank(),
+    legend.direction="horizontal",
+    legend.key.size = unit(4, 'mm'),
+    plot.margin = margin(t=0, r=1, b=2, l=0, unit="mm"), 
+    strip.background =element_blank(),
+    strip.text = element_text(size=6),
+    legend.position='none',
   );
 
-# Create a dummy text for generating the legend
-data.ab.legend <- data.frame(
-  x = c(1, 2, 3),
-  y = c(3, 5, 4),
-  type = c('IGH', 'IGL', 'IGK')
-);
-
-# Plotting the legend
-p.ab.legend <- ggplot(data.ab.legend, aes(x=x, y=y, fill=type)) +   
-  geom_tile() + 
-  scale_fill_manual(values = c(color.IGH, color.IGK, color.IGL), labels=c('IGH', 'IGK', 'IGL')) + 
-  theme_void() + 
-  theme(
-      legend.title=element_blank(),
-      # legend.position = "bottom",
-      legend.direction = "horizontal",
-      legend.justification="center",
-      legend.box.just = "bottom", 
-      legend.title.align=0.5,
-      legend.text=element_text(size=6),
-      legend.key.height= unit(0.5, 'cm'),
-      legend.key.width= unit(0.5, 'cm')
-    );
-p.ab.legend <- get_legend(p.ab.legend);
-
-# Create a heatmap with dendrogram
+# Create a heatmap with dendrogram for VH and VL
 p.heatmap.heavy <- ggplot(heatmap.heavy, aes(x = Var2, y = Var1, fill = Freq)) +
   geom_tile() +
   labs(fill = "Distance") +
@@ -542,7 +599,6 @@ p.heatmap.heavy <- ggplot(heatmap.heavy, aes(x = Var2, y = Var1, fill = Freq)) +
       na.value = "grey90",
       limits = c(0.0, 1),
       option = "D",
-      # trans = "log10",
       n.breaks=7,
     ) +
   # coord_fixed() +
@@ -567,7 +623,6 @@ p.heatmap.light <- ggplot(heatmap.light, aes(x = Var2, y = Var1, fill = Freq)) +
       na.value = "grey90",
       limits = c(0.0, 1),
       option = "D",
-      # trans = "log10",
       n.breaks=7,
     ) +
   # coord_fixed() +
@@ -607,13 +662,11 @@ p.heatmap.legend <- get_legend(p.heatmap.heavy + theme(
   legend.justification="center",
   legend.box.just = "bottom", 
   legend.title.align=0.5,
-  # legend.title=element_blank(),
   legend.text=element_text(size=6)
 ));
 
 # Get tree legend
 p.tree.legend <- get_legend(p.tree.heavy + theme(
-  # legend.title=element_text(size=6),
   legend.direction = "horizontal",
   legend.justification="center",
   legend.box.just = "bottom", 
@@ -627,38 +680,31 @@ p.heatmap.light <- p.heatmap.light + theme(legend.position='none');
 p.tree.heavy <- p.tree.heavy + theme(legend.position='none');
 p.tree.light <- p.tree.light + theme(legend.position='none');
 
-# 
+# Assemble the final graph
 legend.y <- 0.3;
 plot <- plot_grid(
   plot_grid(
     plot_grid(
-      p.heavy.v,
-      p.heavy.j,
-      p.heavy.frequency,
-      vjust=legend.y,
-      labels=c('A', NA, 'B'),
-      ncol=1,
+      p.bubble.heavy,
+      p.violin.heavy,
+      labels=c('A', 'B'),
       align="v",
-    rel_heights=c(0.8,0.8,1.0)
+      ncol=1,
+      vjust = -0.2,
+      hjust = -0.1
     ),
     plot_grid(
-      p.light.v,
-      p.light.j,
-      p.light.frequency,
-      vjust=legend.y,
-      # labels=c('B', NULL, 'F'),
-      ncol=1,
+      p.bubble.light,
+      p.violin.light,
       align="v",
-    rel_heights=c(0.8,0.8,1.0)
+      ncol=1,
+      vjust = -0.2,
+      hjust = -0.1
     ),
     ncol=2,
     align='h'
   ),
-  plot_grid(
-    p.ab.legend,
-    p.frequency.legend,
-    nrow=1
-  ),
+  p.bubble.legend,
   plot_grid(
     plot_grid(
       p.tree.heavy,
@@ -686,9 +732,16 @@ plot <- plot_grid(
     nrow=1,
     align='h'
   ),
+  vjust = -0.2,
+  hjust = -0.1,
   ncol=1,
-  rel_heights = c(1.9,0.2, 1,0.2)
-)+ theme(plot.margin = margin(t=4, r=4, b=0, l=4, unit="mm"));
+  rel_heights = c(
+    1.9,
+    0.3,
+    1,
+    0.2
+  )
+)+ theme(plot.margin = margin(t=6, r=4, b=4, l=4, unit="mm"));
 
 # Save the final plot
 ggsave(filename=opt$output, plot=plot, units="mm", width=170, height=210, dpi=300);

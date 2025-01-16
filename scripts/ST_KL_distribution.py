@@ -60,6 +60,8 @@ metadata_var_list = ['id',
  'Host',
  'Collection date',
  'City/region',
+ 'Host',
+ 'Environmental sample',
  'Country']
 
 # select the columns of interest
@@ -73,7 +75,7 @@ df_merged = df_merged.drop(columns=['id', 'displayname'])
 
 # drop the rows with missing values in year and ST columns
 df_merged = df_merged.dropna(subset=['year', 'ST', 'K_locus'])
-
+df_merged.to_csv('merged.tsv', sep='\t', index=False)
 # cast the year column to integer
 df_merged['year'] = df_merged['year'].astype(int)
 
@@ -380,9 +382,12 @@ df_KL_ST['percentage'] = (df_KL_ST['raw_count'] / df_KL_ST['total_count']) * 100
 
 # Create a figure with 3 rows and 1 column of subplots
 locus_list = ['KL64','KL1','KL2']
-fig, axes = plt.subplots(nrows=len(locus_list), ncols=1, figsize=(8, 12))
+ncols = 2
+nrows = len(locus_list)
+fig, axes = plt.subplots(nrows=len(locus_list), ncols=2, figsize=(ncols*6, nrows*4))
 if len(locus_list) == 1:
     axes = [axes]
+axes = axes.ravel()
 
 for idx, locus in enumerate(locus_list):
     locus_data = df_KL_ST[df_KL_ST['K_locus'] == locus]
@@ -410,19 +415,34 @@ for idx, locus in enumerate(locus_list):
     locus_data = locus_data.merge(total_per_year, on='year')
     locus_data['percentage'] = (locus_data['raw_count'] / locus_data['total_count']) * 100
     
+    # Calculate percentage by year
+    locus_by_year = locus_data.groupby('year')['raw_count'].sum().reset_index()
+    locus_by_year.rename(columns={'raw_count': 'total_year'}, inplace=True)
+    locus_data = pd.merge(locus_data, locus_by_year, on='year', how='left')
+    locus_data['percentage_year'] = (locus_data['raw_count'] / locus_data['total_year']) * 100
+    
+    # locus_data = locus_data.groupby(['year'], as_index=False).agg({'raw_count': 'sum'})
+    print(locus_data)
     
 
-    # Pivot the data to have 'st' as columns for stacked bar plot
+    # Pivot the data to have 'st' as columns for stacked bar plot and normalised by total_count
     pivot_data = locus_data.pivot(index='year', columns='ST', values='percentage').fillna(0)
 
     # Plotting on the specified axis
-    pivot_data.plot(kind='bar', stacked=True, ax=axes[idx])
-
-    # Customize the subplot
-    axes[idx].set_title(f'{locus} locus')
-    axes[idx].set_xlabel('Year')
-    axes[idx].set_ylabel('Percentage of isolates')
-    axes[idx].legend(title=None, ncol=2)
+    axis_idx = idx*2
+    pivot_data.plot(kind='bar', stacked=True, ax=axes[axis_idx+0])
+    axes[axis_idx+0].set_title(f'{locus} locus')
+    axes[axis_idx+0].set_xlabel('Year')
+    axes[axis_idx+0].set_ylabel('Percentage of isolates')
+    axes[axis_idx+0].legend(title=None, ncol=2)
+    
+    # Plot normalised by year
+    pivot_data = locus_data.pivot(index='year', columns='ST', values='percentage_year').fillna(0)
+    pivot_data.plot(kind='bar', stacked=True, ax=axes[axis_idx+1], legend=False)
+    axes[axis_idx+1].set_title(f'{locus} locus normalised by year')
+    axes[axis_idx+1].set_xlabel('Year')
+    axes[axis_idx+1].set_ylabel('Percentage of isolates')
+    # axes[axis_idx+1].legend(title=None, ncol=2)
 
 # Adjust layout to prevent overlap
 plt.tight_layout()
