@@ -73,16 +73,85 @@ usePackage.bio('ggtree');
 usePackage.bio('treeio');
 
 # Define order and labels
+# mapping <- expression(
+#   '591661_assembly'="ST147"['NDM-9'],
+#   'TLS30_assembly'="ST147"["NDM-1"]*"c.i.1",
+#   '591662_assembly'="ST147"['NDM-1']*"c.i.2",
+#   '591663_assembly'="ST13"["OXA-48"],
+#   'ST258_KP35_assembly'="ST258",
+#   'ST307_NDM5'="ST307"["NDM-5"],
+#   'ATCC43816'="ST493",
+#   '591665_assembly'="ST512"["VIM"]
+# );
+
 mapping <- expression(
-  '591661_assembly'="ST147"['NDM-9'],
-  'TLS30_assembly'="ST147"["NDM-1"]*"c.i.1",
-  '591662_assembly'="ST147"['NDM-1']*"c.i.2",
-  '591663_assembly'="ST13"["OXA-48"],
+  'ERR1023711'='MSB1_8A',
+  'ERR1023848'='INF211',
+  '591661_assembly'="ST147 NDM-9",
+  'TLS30_assembly'="ST147 NDM-1 c.i.1",
+  '591662_assembly'="ST147 NDM-1 c.i.2",
+  '591663_assembly'="ST13 OXA-48",
   'ST258_KP35_assembly'="ST258",
-  'ST307_NDM5'="ST307"["NDM-5"],
+  'ST307_NDM5'="ST307 NDM-5",
   'ATCC43816'="ST493",
-  '591665_assembly'="ST512"["VIM"]
+  '591665_assembly'="ST512 VIM"
 );
+
+origin <- list(
+  '166H3'='Hopital De Bicetre',
+  '183J4'='Hopital De Bicetre',
+  '189D7'='Hopital De Bicetre',
+  '192I2'='Hopital De Bicetre',
+  '198J6'='Hopital De Bicetre',
+  '240F8'='Hopital De Bicetre',
+  '242J2'='Hopital De Bicetre',
+  '247C4'='Hopital De Bicetre',
+  '265C5'='Hopital De Bicetre',
+  '333H7'='Hopital De Bicetre',
+  '361J6'='Hopital De Bicetre',
+  '363B4'='Hopital De Bicetre',
+  '363I3'='Hopital De Bicetre',
+  '368J3'='Hopital De Bicetre',
+  '369D5'='Hopital De Bicetre',
+  '412H6'='Hopital De Bicetre',
+  '591661_assembly'='University Hospital of Pisa',
+  '591662_assembly'='University Hospital of Pisa',
+  '591663_assembly'='University Hospital of Pisa',
+  '591665_assembly'='University Hospital of Pisa',
+  'ATCC43816'='ATCC',
+  'ERR1023711'='Monash University',
+  'ERR1023848'='Monash University',
+  'INF049'='Monash University',
+  'INF281'='Monash University',
+  'INF298'='Monash University',
+  'INF299'='Monash University',
+  'INF305'='Monash University',
+  'INF310'='Monash University',
+  'INF357'='Monash University',
+  'ST258_KP35_assembly'='University Hospital of Pisa',
+  'ST307_NDM5'='University Hospital of Pisa',
+  'TLS30_assembly'='University Hospital of Pisa'
+);
+
+map_origin <- function(nameList){
+  result <- c();
+  for (i in 1:length(nameList)) {
+
+    # Check if the column_name is in the mapping
+    name <- nameList[[i]];
+    # label <- name;
+    label <- 'other';
+    if (name %in% names(origin)) {
+      # If present, use the corresponding value as the new column name
+      label <- origin[[name]];
+      label <- unlist(label);
+    }
+
+    result <- c(result, label);
+  }
+  
+  return (result);
+}
 
 rename_assembly <- function(nameList){
 
@@ -120,17 +189,16 @@ data.kleborate <- read.csv(opt$kleborate, header=TRUE, sep="\t", dec=".", string
 data.kleborate <- data.kleborate %>%
   mutate(label=strain) %>%
   select(label, O_locus, K_locus, ST, O_type);
-  
+
 # Get sorted list of labels
 data.tree <- data.frame(label=tree.tls$tip.label, stringsAsFactors = FALSE) %>%
   left_join(data.kleborate, by='label') %>%
   replace_na(list(ST = "unknown", O_locus = "unknown", K_locus = "unknown", O_type="unknown")) %>%
   select(label, O_locus, K_locus, ST, O_type) %>%
-  mutate(label_style=rename_assembly(label));
-print(data.tree);
+  mutate(label_style=rename_assembly(label)) %>%
+  mutate(origin=map_origin(label));
+print(data.tree)
 rownames(data.tree) <- tree.tls$tip.label;
-
-
 
 
 # Open a PDF for plotting; units are inches by default
@@ -139,7 +207,7 @@ cat("Rendering data..", "\n");
 # Generate palettes
 palette.ST.label <- unique(data.tree$ST);
 palette.ST.label <- palette.ST.label[! palette.ST.label %in% c('unknown')];
-palette.ST.color <- colorRampPalette(wes_palette(name="GrandBudapest1"))(length(palette.ST.label));
+palette.ST.color <- colorRampPalette(wes_palette(name="FantasticFox1"))(length(palette.ST.label));
 palette.ST.color <- c(palette.ST.color, '#CECECE');
 palette.type.label <- unique(data.tree$type);
 palette.type.label <- palette.type.label[! palette.type.label %in% c('unknown')];
@@ -151,14 +219,29 @@ palette.klocus.color <- colorRampPalette(wes_palette(name="Rushmore1"))(length(p
 palette.klocus.color <- c(palette.klocus.color, '#CECECE');
 palette.klocus.label <- c(palette.klocus.label, 'unknown');
 
+color.cluster <- c(
+  "Hopital De Bicetre"='#2A2D34', 
+  "University Hospital of Pisa"='#009DDC',
+  'Monash University'='#F26430',
+  'ATCC'='#ACAD94'
+);
+
 # Plot phylogenetic tree
 p.tree <- ggtree(tree.tls, ladderize=F) %<+% data.tree +
   scale_x_continuous() +
   geom_tiplab(
     align=TRUE, 
-    size=2,
-    aes(label=label_style), parse = TRUE
+    size=2.5,
+    aes(label=label_style), 
+    parse = FALSE,
+    offset=0.0005
   ) +
+  geom_tippoint(aes(colour=factor(origin)), size=1.5) +
+  scale_color_manual(
+    values=color.cluster
+    # labels = c("Cluster 1", "Cluster 2")
+  ) +
+  guides(color=guide_legend("Origin")) +
   theme_tree2() + 
   theme(legend.key.size = unit(0.4, 'cm'));
 
@@ -167,10 +250,12 @@ plotList <- list();
 
 # Append kleborate data
 tree.tls.max <- max(tree.tls$edge.length);
-heatmap.offset <- tree.tls.max*1.2;
-heatmap.item <- tree.tls.max/3;
+heatmap.offset <- tree.tls.max*0.8+0.005;
+heatmap.item <- tree.tls.max/4;
+heatmap.width <- 0.12;
 
 # ST
+p.tree <- p.tree + new_scale_fill();
 p.tree <- p.tree %>% gheatmap(
     data.tree %>% select(ST),
     colnames_position = "top",
@@ -178,60 +263,46 @@ p.tree <- p.tree %>% gheatmap(
     colnames_angle=90, 
     font.size = 2.5,
     offset=heatmap.offset,
-    width=0.3,
+    # width=0.2,
+    width=heatmap.width,
     hjust=0
-  ) + 
+  )+ 
   scale_fill_manual(
     values = palette.ST.color, 
     na.translate = FALSE,
-    name = "ST",
-    guide = guide_legend(order = 2)
-  ) + 
-  new_scale_fill();
-
-
-# O-type
-p.tree <- p.tree %>% gheatmap(
-    data.tree %>% select(O_type),
-    colnames_position = "top",
-    custom_column_labels = c('O-type'),
-    colnames_angle=90, 
-    font.size = 2.5,
-    offset=heatmap.offset + (heatmap.item*2),
-    width=0.3,
-    hjust=0
-  ) + scale_fill_manual(
-    values = palette.klocus.color, 
-    na.translate = FALSE,
-    name = "O-type",
-    guide = guide_legend(order = 4)
-  ) +
-  new_scale_fill();
+    name = "ST"
+  ) + theme(
+    legend.text = element_text(size = 8),  # Reduce legend text size
+    legend.key.size = unit(0.3, 'cm')  # Reduce legend item size
+  );
 
 # K-locus
+p.tree <- p.tree + new_scale_fill();
 p.tree <- p.tree %>% gheatmap(
     data.tree %>% select(K_locus),
     colnames_position = "top",
-    custom_column_labels = c('K-locus'),
+    custom_column_labels = c('KL'),
     colnames_angle=90, 
     font.size = 2.5,
-    offset=heatmap.offset + (heatmap.item*4),
-    width=0.3,
+    offset=heatmap.offset + (heatmap.item*1),
+    # width=0.2,
+    width=heatmap.width,
     hjust=0
   ) + scale_fill_manual(
     values = palette.klocus.color, 
     na.translate = FALSE,
-    name = "K-locus",
-    guide = guide_legend(order = 5)
-  ) +
-  new_scale_fill();
+    name = "K-locus"
+  ) + theme(
+    legend.text = element_text(size = 8),  # Reduce legend text size
+    legend.key.size = unit(0.3, 'cm')  # Reduce legend item size
+  )
 
 # Store results
-p.tree <- p.tree + ggtree::vexpand(.05, 1);
+p.tree <- p.tree + ggtree::vexpand(.05, 1) + theme(plot.margin = margin(t=2, r=2, b=2, l=2, unit="mm"));
 plotList[['tree']] <- p.tree;
 
 # Save the final plot
-ggsave(filename=opt$output, marrangeGrob(top = NULL, grobs = plotList, nrow=1, ncol=1), units="mm", width=85, height=100, dpi=300);
+ggsave(filename=opt$output, marrangeGrob(top = NULL, grobs = plotList, nrow=1, ncol=1), units="mm", width=120, height=130, dpi=300);
 
 # Often the most useful way to look at many warnings:
 summary(warnings())

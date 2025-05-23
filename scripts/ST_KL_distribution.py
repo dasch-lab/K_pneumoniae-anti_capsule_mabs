@@ -75,7 +75,7 @@ df_merged = df_merged.drop(columns=['id', 'displayname'])
 
 # drop the rows with missing values in year and ST columns
 df_merged = df_merged.dropna(subset=['year', 'ST', 'K_locus'])
-df_merged.to_csv('merged.tsv', sep='\t', index=False)
+
 # cast the year column to integer
 df_merged['year'] = df_merged['year'].astype(int)
 
@@ -108,7 +108,7 @@ palette = sns.color_palette()
 
 # --------------------------------------- Plot of the distribution of the STs by year
 
-st_by_year_df = df_merged.groupby(by=['year', 'ST']).size().unstack().reset_index().drop(columns='0')
+st_by_year_df = df_merged.groupby(by=['year', 'ST']).size().unstack().reset_index()#.drop(columns='0')
 st_by_year_df = st_by_year_df.fillna(0)
 
 
@@ -139,11 +139,11 @@ ax = sns.lineplot(x='year', y='value', hue='ST', data=pd.melt(siena_st_df, ['yea
 ax1 = sns.lineplot(x='year', y='value', hue='ST', data=pd.melt(most_frequent_st_df, ['year']), legend='brief',lw=.8, alpha=.7, palette=palette[1:], linestyle='dashdot')
 plt.xlabel('Year')
 # reduce the legend font to 'x-small'
-sns.move_legend(ax, "upper left", fontsize='xx-small', title=None)
-sns.move_legend(ax1, "upper left", fontsize='xx-small', title=None)
+sns.move_legend(ax, "upper left", fontsize=8, title=None, ncol=2)
+sns.move_legend(ax1, "upper left", fontsize=8, title=None, ncol=2)
 
 if normalise_precent:
-    plt.ylabel('Percentage of isolates')
+    plt.ylabel('Isolates (%)')
     plt.title('Percentage of isolates by year')
     if compute_over_the_most_frequent:
         plt.title('Yearly distribution of the percentage of isolates for the ten most frequent STs\n(percentage computed over the ten most frequent STs)', fontsize=11)
@@ -194,10 +194,10 @@ ax1 = sns.lineplot(x='year', y='value', hue='K_locus', data=pd.melt(most_frequen
 plt.xlabel('Year')
 
 # reduce the legend font to 'x-small'
-sns.move_legend(ax, "upper left", fontsize='xx-small', title=None)
-sns.move_legend(ax1, "upper left", fontsize='xx-small', title=None)
+sns.move_legend(ax, "upper left", fontsize=8, title=None, ncol=2)
+sns.move_legend(ax1, "upper left", fontsize=8, title=None, ncol=2)
 if normalise_precent:
-    plt.ylabel('Percentage of isolates')
+    plt.ylabel('Isolates (%)')
     if compute_over_the_most_frequent:
         plt.title('Yearly distribution of the percentage of isolates for the ten most frequent K_locus\n(percentage computed over the ten most frequent K_locus)', fontsize=11)
         plt.savefig(os.path.join(result_path, 'number_of_isolates_by_year_and_K_locus_lineplot_percentage_over_most_frequent.png'))
@@ -253,10 +253,10 @@ sns.set(style="whitegrid") #{'darkgrid', 'whitegrid', 'dark', 'white', 'ticks'}
 ax = sns.lineplot(x='year', y='virulence_score_gt_3', hue='ST', data=virulence_resistance_df_siena, legend='brief', lw=1.5)
 ax1 = sns.lineplot(x='year', y='virulence_score_gt_3', hue='ST', data=virulence_resistance_df_most_frequent, legend='brief', lw=.8, alpha=.7, palette=palette[1:], linestyle='dashdot')
 plt.xlabel('Year')
-sns.move_legend(ax, "upper left", fontsize='xx-small', title=None)
-sns.move_legend(ax1, "upper left", fontsize='xx-small', title=None)
+sns.move_legend(ax, "upper left", fontsize=8, title=None, ncol=2)
+sns.move_legend(ax1, "upper left", fontsize=8, title=None, ncol=2)
 if normalise_precent:
-    plt.ylabel('Percentage of isolates')
+    plt.ylabel('Isolates (%)')
     plt.title('Yearly distribution of the percentage of isolates with\n Virulence Score greater than 2 for the ten most frequent STs\n(percentage computed over all the STs)', fontsize=11)
     plt.title(" ")
     plt.savefig(os.path.join(result_path, 'number_of_isolates_with_virulence_score_gt_3_by_year_percentage_over_all_the_STs.png'))
@@ -274,10 +274,10 @@ sns.set(style="whitegrid") #{'darkgrid', 'whitegrid', 'dark', 'white', 'ticks'}
 ax = sns.lineplot(x='year', y='resistance_score_gt_2', hue='ST', data=virulence_resistance_df_siena, legend='brief', lw=1.5)
 ax1 = sns.lineplot(x='year', y='resistance_score_gt_2', hue='ST', data=virulence_resistance_df_most_frequent, legend='brief', lw=.8, alpha=.7, palette=palette[1:], linestyle='dashdot')
 plt.xlabel('Year')
-sns.move_legend(ax, "upper left", fontsize='xx-small', title=None)
-sns.move_legend(ax1, "upper left", fontsize='xx-small', title=None)
+sns.move_legend(ax, "upper left", fontsize=8, title=None, ncol=2)
+sns.move_legend(ax1, "upper left", fontsize=8, title=None, ncol=2)
 if normalise_precent:
-    plt.ylabel('Percentage of isolates')
+    plt.ylabel('Isolates (%)')
     plt.title('Yearly distribution of the percentage of isolates with\n Resistance Score 2-3 for the ten most frequent ST', fontsize=11)
     plt.title(" ")
     plt.savefig(os.path.join(result_path, 'number_of_isolates_with_resistance_score_gt_2_by_year_percentage_over_all_the_STs.png'))
@@ -315,10 +315,10 @@ sns.set(style="whitegrid") #{'darkgrid', 'whitegrid', 'dark', 'white', 'ticks'}
 ax = sns.lineplot(x='year', y='virulence_score_gt_3', hue='K_locus', data=virulence_resistance_df_siena, legend='brief', lw=1.5)
 ax1 = sns.lineplot(x='year', y='virulence_score_gt_3', hue='K_locus', data=virulence_resistance_df_most_frequent, legend='brief', lw=.8, alpha=.7, palette=palette[1:], linestyle='dashdot')
 plt.xlabel('Year')
-sns.move_legend(ax, "upper left", fontsize='xx-small', title=None)
-sns.move_legend(ax1, "upper left", fontsize='xx-small', title=None)
+sns.move_legend(ax, "upper left", fontsize=8, title=None, ncol=2)
+sns.move_legend(ax1, "upper left", fontsize=8, title=None, ncol=2)
 if normalise_precent:
-    plt.ylabel('Percentage of isolates')
+    plt.ylabel('Isolates (%)')
     plt.title('Yearly distribution of the percentage of isolates with\n Virulence Score greater than 2 for the ten most frequent K_locus\n(percentage computed over all the K_locus)', fontsize=11)
     plt.title(" ")
     plt.savefig(os.path.join(result_path, 'number_of_isolates_with_virulence_score_gt_3_by_year_percentage_KL_over_all_the_STs.png'))
@@ -336,10 +336,10 @@ sns.set(style="whitegrid") #{'darkgrid', 'whitegrid', 'dark', 'white', 'ticks'}
 ax = sns.lineplot(x='year', y='resistance_score_gt_2', hue='K_locus', data=virulence_resistance_df_siena, legend='brief', lw=1.5)
 ax1 = sns.lineplot(x='year', y='resistance_score_gt_2', hue='K_locus', data=virulence_resistance_df_most_frequent, legend='brief', lw=.8, alpha=.7, palette=palette[1:], linestyle='dashdot')
 plt.xlabel('Year')
-sns.move_legend(ax, "upper left", fontsize='xx-small', title=None)
-sns.move_legend(ax1, "upper left", fontsize='xx-small', title=None)
+sns.move_legend(ax, "upper left", fontsize=8, title=None, ncol=2)
+sns.move_legend(ax1, "upper left", fontsize=8, title=None, ncol=2)
 if normalise_precent:
-    plt.ylabel('Percentage of isolates')
+    plt.ylabel('Isolates (%)')
     plt.title('Yearly distribution of the percentage of isolates with\n Resistance Score 2-3 for the ten most frequent K_locus', fontsize=11)
     plt.title(" ")
     plt.savefig(os.path.join(result_path, 'number_of_isolates_with_resistance_score_gt_2_by_year_percentage_KL_over_all_the_STs.png'))
@@ -433,7 +433,7 @@ for idx, locus in enumerate(locus_list):
     pivot_data.plot(kind='bar', stacked=True, ax=axes[axis_idx+0])
     axes[axis_idx+0].set_title(f'{locus} locus')
     axes[axis_idx+0].set_xlabel('Year')
-    axes[axis_idx+0].set_ylabel('Percentage of isolates')
+    axes[axis_idx+0].set_ylabel('Isolates (%)')
     axes[axis_idx+0].legend(title=None, ncol=2)
     
     # Plot normalised by year
@@ -441,7 +441,7 @@ for idx, locus in enumerate(locus_list):
     pivot_data.plot(kind='bar', stacked=True, ax=axes[axis_idx+1], legend=False)
     axes[axis_idx+1].set_title(f'{locus} locus normalised by year')
     axes[axis_idx+1].set_xlabel('Year')
-    axes[axis_idx+1].set_ylabel('Percentage of isolates')
+    axes[axis_idx+1].set_ylabel('Isolates (%)')
     # axes[axis_idx+1].legend(title=None, ncol=2)
 
 # Adjust layout to prevent overlap

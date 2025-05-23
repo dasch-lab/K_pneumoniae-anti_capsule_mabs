@@ -365,6 +365,12 @@ data.frequency <- data.input %>%
   dplyr::mutate(label=paste(v_call, j_call, sep=';')) %>%
   dplyr::mutate(cluster = as.factor(cluster));
 
+# Print the whole frequency table
+print(data.frequency %>% dplyr::arrange(dplyr::desc(count)), width = Inf, n=Inf);
+
+# Print antibodies data
+print(data.input %>% dplyr::select(name, cluster, type, v_call, j_call));
+
 data.violin <- data.input %>%
   dplyr::select(cluster, type, v_identity, d_identity, j_identity) %>%
   pivot_longer(cols = c(v_identity, d_identity, j_identity ), names_to = "key", values_to = "value") %>%
@@ -395,7 +401,7 @@ bubble.min <- min(data.frequency$freq)  # Smallest size across both datasets
 bubble.max <- max(data.frequency$freq)  # Largest size across both datasets
 size_range <- c(3, 10)  # Visual size range for bubbles
 
-color.cluster <- c('#FF5C8F', '#6983C9');
+color.cluster <- c("1"='#FF5C8F', "2"='#6983C9');
 p.bubble.light <- ggplot(data.frequency %>% filter(type == 'light'), aes(x = v_call, y = j_call, fill = cluster, label=label)) +
   geom_point(data = subset(data.frequency, type =='light' & !label %in% germline.top.list), aes(size=freq, alpha=0.7), shape = 21) + 
   geom_point(data = subset(data.frequency, type =='light' & label %in% germline.top.list), aes(size=freq, alpha=1.0), shape = 21) + 
@@ -637,7 +643,10 @@ p.heatmap.light <- ggplot(heatmap.light, aes(x = Var2, y = Var1, fill = Freq)) +
 p.tree.heavy <-  ggtree(cluster.heavy, ladderize=FALSE) %<+% data.full.heavy +
     geom_tiplab(size=2, align=TRUE) + 
     geom_tippoint(aes(colour=factor(cluster)), size=1.5) +
-    scale_color_manual(values=c('#FF5C8F', '#6983C9'), labels = c("Cluster 1", "Cluster 2")) +
+    scale_color_manual(
+      values=color.cluster, 
+      labels = c("Cluster 1", "Cluster 2")
+    ) +
     xlim_tree(0.2) + 
     coord_cartesian(clip = "off") + 
     theme_tree2() + 
@@ -647,7 +656,10 @@ p.tree.heavy <-  ggtree(cluster.heavy, ladderize=FALSE) %<+% data.full.heavy +
 p.tree.light <-  ggtree(cluster.light, ladderize=FALSE) %<+% data.full.light +
     geom_tiplab(size=2, align=TRUE) + 
     geom_tippoint(aes(colour=factor(cluster)), size=1.5) +
-    scale_color_manual(values=c('#FF5C8F', '#6983C9'), labels = c("Cluster 1", "Cluster 2")) +
+    scale_color_manual(
+      values=color.cluster, 
+      labels = c("Cluster 1", "Cluster 2")
+    ) +
     xlim_tree(0.5) + 
     coord_cartesian(clip = "off") +
     theme_tree2() + 
@@ -701,6 +713,10 @@ plot <- plot_grid(
       vjust = -0.2,
       hjust = -0.1
     ),
+    rel_heights = c(
+      1.0,
+      0.8
+    ),
     ncol=2,
     align='h'
   ),
@@ -736,7 +752,7 @@ plot <- plot_grid(
   hjust = -0.1,
   ncol=1,
   rel_heights = c(
-    1.9,
+    1.7,
     0.3,
     1,
     0.2
@@ -744,7 +760,7 @@ plot <- plot_grid(
 )+ theme(plot.margin = margin(t=6, r=4, b=4, l=4, unit="mm"));
 
 # Save the final plot
-ggsave(filename=opt$output, plot=plot, units="mm", width=170, height=210, dpi=300);
+ggsave(filename=opt$output, plot=plot, units="mm", width=170, height=190, dpi=300);
 
 # Often the most useful way to look at many warnings:
 summary(warnings());

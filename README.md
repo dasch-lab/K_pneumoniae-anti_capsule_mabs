@@ -56,6 +56,6 @@ The analysis of the genes included in the K-locus and O-locus of studied strains
 
 Phylogenetic analysis was performed using the pan-genome analysis of the selected strains, and plotted with the following script:
 
-    Rscript ./scripts/tree.R -t ./data/core_snp_alignment.tree -k ./data/kleborate.txt -o ./results/tree.png
+    Rscript ./scripts/tree.R -t ./data/fasttree_cgMLST.nwk -k ./data/kleborate.txt -o ./results/tree.png
 
 
