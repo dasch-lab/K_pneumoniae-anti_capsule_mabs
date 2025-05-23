@@ -27,19 +27,21 @@ if not os.path.exists(result_path):
 kleborate_path = os.path.join(file_path, 'data', 'klebsiella_pneumoniae__kleborate.csv')
 kleborate_df = pd.read_csv(kleborate_path, sep=",")
 
-kleborate_var_list = ['Genome ID',
- 'Genome Name',
- 'strain',
- 'species',
- 'ST',
- 'virulence_score',
- 'resistance_score',
- 'num_resistance_classes',
- 'num_resistance_genes',
- 'K_locus',
- 'K_type',
- 'O_locus',
- 'O_type']
+kleborate_var_list = [
+    'Genome ID',
+    'Genome Name',
+    #  'strain',
+    'species',
+    'ST',
+    'virulence_score',
+    'resistance_score',
+    'resistance_class_count',
+    'resistance_gene_count',
+    'K_locus',
+    'K_type',
+    'O_locus',
+    'O_type'
+]
 
 # select the columns of interest
 kleborate_df = kleborate_df[kleborate_var_list]
