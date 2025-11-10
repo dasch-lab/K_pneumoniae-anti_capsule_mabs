@@ -3,6 +3,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
 import geopandas
+import geodatasets
 import numpy as np
 
 ## --- Parameters --- ##
@@ -20,21 +21,27 @@ world_background_color = sns.color_palette("pastel")[5]
 ## --- [END] Parameters --- ##
 
 ## Data loading and merging
-file_path = "/data"
+file_path = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
 
+# Create the output directory
+result_path = os.path.join(file_path, 'results')
+if not os.path.exists(result_path):
+    os.mkdir(result_path)
+    
 # load kleborate file
-kleborate_path = os.path.join(file_path, 'Klebsiella_pneumoniae__kleborate.csv')
+kleborate_path = os.path.join(file_path, 'data', 'klebsiella_pneumoniae__kleborate.csv')
 kleborate_df = pd.read_csv(kleborate_path, sep=",")
 
-kleborate_var_list = ['Genome ID',
+kleborate_var_list = [
+ 'Genome ID',
  'Genome Name',
- 'strain',
+#  'strain',
  'species',
  'ST',
  'virulence_score',
  'resistance_score',
- 'num_resistance_classes',
- 'num_resistance_genes',
+ 'resistance_class_count',
+  'resistance_gene_count',
  'K_locus',
  'K_type',
  'O_locus',
@@ -47,7 +54,7 @@ kleborate_df = kleborate_df[kleborate_var_list]
 print("number of KL64: ", kleborate_df['K_locus'].value_counts()) # number of KL64: 3742.
 
 # load metadata file
-metadata_path = os.path.join(file_path, 'Klebsiella_pneumoniae__metadata.csv')
+metadata_path = os.path.join(file_path, 'data', 'klebsiella_pneumoniae__metadata.csv')
 metadata_df = pd.read_csv(metadata_path, sep=",")
 
 metadata_var_list = ['id',
@@ -90,8 +97,8 @@ df_merged['latitude'] = df_merged['latitude'].apply(lambda x: x + np.random.norm
 df_merged['longitude'] = df_merged['longitude'].apply(lambda x: x + np.random.normal(0, sigma))
 
 # load the world map
-world = geopandas.read_file(geopandas.datasets.get_path('naturalearth_lowres'))
-
+# world = geopandas.read_file(geopandas.datasets.get_path('naturalearth_lowres'))
+world = geopandas.read_file(geodatasets.get_path('naturalearth.land'))
 
 # -- Create a word map plot with K locus KL64 for the year 2010 -- #
 # filter the rows with year <= 2010. Cumulative number of isolates till 2010
@@ -117,7 +124,7 @@ plt.yticks([])
 # reduce the space between the plot and the edge of the figure
 plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
 plt.title(f'Cumulative number of genomes reported in Pathogen watch for Klebsiella pneumoniae with K64 capsule up to December 2010. \nTotal number of isolates: {len(gdf_2010_kl64)}.', fontsize=12)
-plt.savefig(f'world_map_plot_2010_kl64_replace_unknown_kl64{replace_unknown_kl64}.png')
+plt.savefig(os.path.join(result_path, f'world_map_plot_2010_kl64_replace_unknown_kl64{replace_unknown_kl64}.png'))
 plt.close()
 # -- [END] Create a word map plot with K locus KL64 for the year 2010 -- #
 
@@ -146,7 +153,7 @@ plt.yticks([])
 # reduce the space between the plot and the edge of the figure
 plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
 plt.title(f'Cumulative number of genomes reported in Pathogen watch for Klebsiella pneumoniae with K64 capsule up to December 2016. \nTotal number of isolates: {len(gdf_2016_kl64)}.', fontsize=12)
-plt.savefig(f'world_map_plot_2016_kl64_replace_unknown_kl64{replace_unknown_kl64}.png')
+plt.savefig(os.path.join(result_path, f'world_map_plot_2016_kl64_replace_unknown_kl64{replace_unknown_kl64}.png'))
 plt.close()
 # -- [END] Create a word map plot with K locus KL64 for the year 2016 -- #
 
@@ -176,7 +183,7 @@ plt.yticks([])
 # reduce the space between the plot and the edge of the figure
 plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
 plt.title(f'Cumulative number of genomes reported in Pathogen watch for Klebsiella pneumoniae with K64 capsule up to December 2022. \nTotal number of isolates: {len(gdf_2022_kl64)}.', fontsize=12)
-plt.savefig(f'world_map_plot_2022_kl64_replace_unknown_kl64{replace_unknown_kl64}.png')
+plt.savefig(os.path.join(result_path, f'world_map_plot_2022_kl64_replace_unknown_kl64{replace_unknown_kl64}.png'))
 plt.close()
 # -- [END] Create a word map plot with K locus KL64 for the year 2022 -- #
 

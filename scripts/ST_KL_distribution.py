@@ -27,19 +27,21 @@ if not os.path.exists(result_path):
 kleborate_path = os.path.join(file_path, 'data', 'klebsiella_pneumoniae__kleborate.csv')
 kleborate_df = pd.read_csv(kleborate_path, sep=",")
 
-kleborate_var_list = ['Genome ID',
- 'Genome Name',
-#  'strain',
- 'species',
- 'ST',
- 'virulence_score',
- 'resistance_score',
- 'resistance_class_count',
- 'resistance_gene_count',
- 'K_locus',
- 'K_type',
- 'O_locus',
- 'O_type']
+kleborate_var_list = [
+    'Genome ID',
+    'Genome Name',
+    #  'strain',
+    'species',
+    'ST',
+    'virulence_score',
+    'resistance_score',
+    'resistance_class_count',
+    'resistance_gene_count',
+    'K_locus',
+    'K_type',
+    'O_locus',
+    'O_type'
+]
 
 # select the columns of interest
 kleborate_df = kleborate_df[kleborate_var_list]
@@ -75,7 +77,7 @@ df_merged = df_merged.drop(columns=['id', 'displayname'])
 
 # drop the rows with missing values in year and ST columns
 df_merged = df_merged.dropna(subset=['year', 'ST', 'K_locus'])
-df_merged.to_csv('merged.tsv', sep='\t', index=False)
+
 # cast the year column to integer
 df_merged['year'] = df_merged['year'].astype(int)
 
@@ -107,10 +109,8 @@ print(df_merged['O_locus'].value_counts().head(10))
 palette = sns.color_palette()
 
 # --------------------------------------- Plot of the distribution of the STs by year
-print(df_merged.columns)
 st_by_year_df = df_merged.groupby(by=['year', 'ST']).size().unstack().reset_index()#.drop(columns='0')
 st_by_year_df = st_by_year_df.fillna(0)
-print(st_by_year_df.columns)
 
 if compute_over_the_most_frequent:
     # Select the most frequent STs
